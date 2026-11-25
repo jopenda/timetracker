@@ -21,12 +21,12 @@ async function logWorkToJira(credentials, { date, startTime, endTime, issue, wor
 
   try {
     // ── 1. Timetracker 페이지 열기 ──────────────────────────
-    await page.goto(TIMETRACKER_URL, { waitUntil: 'networkidle', timeout: 30000 });
+    await page.goto(TIMETRACKER_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
     // ── 2. Atlassian 로그인 처리 ─────────────────────────────
     if (page.url().includes('/login') || page.url().includes('atlassian.net/login')) {
       await handleAtlassianLogin(page, credentials);
-      await page.goto(TIMETRACKER_URL, { waitUntil: 'networkidle', timeout: 30000 });
+      await page.goto(TIMETRACKER_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
     }
 
     // ── 3. 타임트래커 로드 대기 ──────────────────────────────

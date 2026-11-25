@@ -30,41 +30,31 @@ async function getPljekAttendance({ email, password }) {
     }
 
     // ── 2. 대시보드에서 출퇴근 시간 읽기 ─────────────────────
-    // 스크린샷 기반 추정: "08:52 AM" 형태로 표시됨
-    // 실제 DOM을 확인해야 정확한 선택자를 쓸 수 있습니다.
+    // 선택자 확인 완료:
+    //   출근: #home2_work_time_from_str  예) "08:52 AM"
+    //   퇴근: #home2_work_time_to_str    예) "05:40 PM"
     await page.waitForTimeout(2000);
 
-    // 출근 시간: 화면에 "08:52 AM" 형태로 표시
-    // TODO: 실제 선택자로 교체 (개발자도구 F12 → 해당 텍스트 요소 확인)
-    const pageText = await page.textContent('body');
+    // 대시보드가 로드될 때까지 출근 시간 요소 대기
+    await page.waitForSelector('#home2_work_time_from_str', { timeout: 15000 });
 
-    // 페이지 전체 텍스트에서 시간 패턴 추출 (AM/PM 포함)
-    const clockInText  = extractClockIn(pageText);
-    const clockOutText = extractClockOut(pageText);
+    const clockInRaw  = await page.textContent('#home2_work_time_from_str');
+    const clockOutRaw = await page.textContent('#home2_work_time_to_str');
 
-    // 더 정밀한 시도: 특정 위치의 요소
-    // 출근 시간은 대개 첫 번째로 나오는 시각
-    const timeElements = await page.locator('[class*="time"], [class*="clock"], [class*="check"]').allTextContents();
-    console.log('  시간 요소들:', timeElements);
+    console.log('  출근 원본:', clockInRaw);
+    console.log('  퇴근 원본:', clockOutRaw);
 
-    let clockIn  = clockInText;
-    let clockOut = clockOutText;
-
-    // 요소에서 시간 파싱 (백업)
-    for (const t of timeElements) {
-      const parsed = parseTimeStr(t);
-      if (parsed && !clockIn) clockIn = parsed;
-    }
+    const clockIn  = parseTimeStr(clockInRaw);
+    const clockOut = parseTimeStr(clockOutRaw);
 
     if (!clockIn) {
-      // 디버그용 스크린샷 저장
       await page.screenshot({ path: 'data/debug_pljec.png', fullPage: true });
-      throw new Error('출근 시간을 찾을 수 없습니다. data/debug_pljec.png 를 확인하세요.');
+      throw new Error(`출근 시간을 파싱할 수 없습니다: "${clockInRaw}"`);
     }
 
-    if (!clockOut) {
+    if (!clockOut || clockOutRaw.trim() === '' || clockOutRaw.includes('-')) {
       await page.screenshot({ path: 'data/debug_pljec.png', fullPage: true });
-      throw new Error('퇴근 시간을 찾을 수 없습니다. 퇴근 처리가 완료됐는지 확인하거나 data/debug_pljec.png 를 확인하세요.');
+      throw new Error('퇴근 시간이 없습니다. 퇴근 버튼을 먼저 눌러주세요.');
     }
 
     return { clockIn, clockOut };
