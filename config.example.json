@@ -1,0 +1,13 @@
+{
+  "pljec": {
+    "email":    "your-email@company.com",
+    "password": "your-pljec-password"
+  },
+  "jira": {
+    "email":    "your-email@company.com",
+    "password": "your-jira-password"
+  },
+  "jiraIssue":        "SLSIXPU-1",
+  "worklogAttribute": "PI",
+  "scheduleHour":     23
+}

@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>근태 자동화 봇</title>
+  <style>
+    :root {
+      --bg:       #0f1117;
+      --surface:  #1a1d27;
+      --border:   #2a2d3e;
+      --primary:  #6366f1;
+      --primary-h:#818cf8;
+      --success:  #22c55e;
+      --error:    #ef4444;
+      --warn:     #f59e0b;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --radius:   12px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      padding: 24px 16px;
+    }
+
+    .container { max-width: 760px; margin: 0 auto; }
+
+    /* ── 헤더 ── */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    .logo { font-size: 28px; }
+    h1 { font-size: 20px; font-weight: 700; }
+    .subtitle { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+    /* ── 카드 ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 16px;
+    }
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    /* ── 상태 카드 ── */
+    .status-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+    }
+    .stat {
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 14px 16px;
+      text-align: center;
+    }
+    .stat-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+    .stat-value { font-size: 18px; font-weight: 700; }
+    .dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+      background: var(--muted);
+    }
+    .dot.ok  { background: var(--success); box-shadow: 0 0 6px var(--success); }
+    .dot.err { background: var(--error); }
+    .dot.run { background: var(--warn); animation: pulse .8s infinite alternate; }
+    @keyframes pulse { to { opacity: .3; } }
+
+    /* ── 실행 버튼 ── */
+    .run-btn {
+      width: 100%;
+      padding: 14px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+      margin-top: 4px;
+    }
+    .run-btn:hover  { background: var(--primary-h); }
+    .run-btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+
+    /* ── 설정 폼 ── */
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group.full { grid-column: 1 / -1; }
+    label { font-size: 12px; color: var(--muted); font-weight: 500; }
+    input, select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 10px 12px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color .15s;
+    }
+    input:focus, select:focus { border-color: var(--primary); }
+    input[type="password"] { letter-spacing: .15em; }
+
+    .save-btn {
+      padding: 10px 20px;
+      background: var(--surface);
+      border: 1px solid var(--primary);
+      color: var(--primary);
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+      margin-top: 12px;
+    }
+    .save-btn:hover { background: var(--primary); color: #fff; }
+
+    .section-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 16px 0;
+    }
+
+    /* ── 로그 테이블 ── */
+    .log-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .log-table th {
+      text-align: left;
+      color: var(--muted);
+      font-weight: 500;
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .log-table td { padding: 10px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .log-table tr:last-child td { border-bottom: none; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge.success { background: #16a34a22; color: var(--success); }
+    .badge.error   { background: #dc262622; color: var(--error); }
+
+    .empty { color: var(--muted); text-align: center; padding: 24px; font-size: 13px; }
+
+    /* ── 토스트 ── */
+    #toast {
+      position: fixed;
+      bottom: 24px; right: 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 18px;
+      font-size: 14px;
+      display: none;
+      z-index: 999;
+      max-width: 320px;
+      box-shadow: 0 4px 20px #0005;
+    }
+    #toast.show { display: block; }
+
+    /* ── 반응형 ── */
+    @media (max-width: 520px) {
+      .status-grid { grid-template-columns: 1fr 1fr; }
+      .form-row    { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- 헤더 -->
+  <header>
+    <span class="logo">🤖</span>
+    <div>
+      <h1>근태 자동화 봇</h1>
+      <div class="subtitle">PLJEC HR → Jira Timetracker 자동 연동</div>
+    </div>
+  </header>
+
+  <!-- 상태 카드 -->
+  <div class="card">
+    <div class="card-title">현재 상태</div>
+    <div class="status-grid">
+      <div class="stat">
+        <div class="stat-label">봇 상태</div>
+        <div class="stat-value" id="botStatus"><span class="dot"></span>로딩중</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">마지막 실행</div>
+        <div class="stat-value" id="lastRunTime" style="font-size:13px;">—</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">다음 실행</div>
+        <div class="stat-value" id="nextRunTime" style="font-size:13px;">—</div>
+      </div>
+    </div>
+
+    <button class="run-btn" id="runBtn" onclick="manualRun()" style="margin-top:16px;">
+      ▶ 지금 바로 실행
+    </button>
+  </div>
+
+  <!-- 설정 카드 -->
+  <div class="card">
+    <div class="card-title">⚙️ 설정</div>
+
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">
+      🔒 비밀번호는 서버에 암호화되어 저장되며 외부로 전송되지 않습니다.
+    </div>
+
+    <!-- PLJEC 설정 -->
+    <div style="font-size:13px;font-weight:600;margin-bottom:10px;">📍 PLJEC HR</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>이메일</label>
+        <input type="email" id="pljecEmail" placeholder="user@company.com" />
+      </div>
+      <div class="form-group">
+        <label>비밀번호</label>
+        <input type="password" id="pljecPassword" placeholder="••••••••" />
+      </div>
+    </div>
+
+    <hr class="section-divider" />
+
+    <!-- Jira 설정 -->
+    <div style="font-size:13px;font-weight:600;margin-bottom:10px;">📝 Jira</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>이메일</label>
+        <input type="email" id="jiraEmail" placeholder="user@company.com" />
+      </div>
+      <div class="form-group">
+        <label>비밀번호</label>
+        <input type="password" id="jiraPassword" placeholder="••••••••" />
+      </div>
+      <div class="form-group">
+        <label>이슈 키</label>
+        <input type="text" id="jiraIssue" placeholder="SLSIXPU-1" />
+      </div>
+      <div class="form-group">
+        <label>Worklog Attribute</label>
+        <input type="text" id="worklogAttribute" placeholder="PI" />
+      </div>
+    </div>
+
+    <hr class="section-divider" />
+
+    <!-- 스케줄 -->
+    <div style="font-size:13px;font-weight:600;margin-bottom:10px;">⏰ 실행 시각 (평일 자동)</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>시각 (0–23시)</label>
+        <select id="scheduleHour">
+          <!-- JS로 채움 -->
+        </select>
+      </div>
+    </div>
+
+    <button class="save-btn" onclick="saveConfig()">💾 설정 저장</button>
+  </div>
+
+  <!-- 실행 로그 -->
+  <div class="card">
+    <div class="card-title">📋 실행 로그</div>
+    <div id="logContainer">
+      <div class="empty">아직 실행 기록이 없습니다.</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 토스트 -->
+<div id="toast"></div>
+
+<script>
+  // ── 시간 선택 옵션 생성 ──────────────────────────────────
+  const hourSel = document.getElementById('scheduleHour');
+  for (let h = 0; h < 24; h++) {
+    const opt = document.createElement('option');
+    opt.value = h;
+    opt.textContent = `${String(h).padStart(2,'0')}:00`;
+    if (h === 23) opt.selected = true;
+    hourSel.appendChild(opt);
+  }
+
+  // ── 초기 로드 ────────────────────────────────────────────
+  window.onload = () => {
+    loadConfig();
+    loadStatus();
+    loadLogs();
+    setInterval(() => { loadStatus(); loadLogs(); }, 10000);
+  };
+
+  // ── 설정 불러오기 ────────────────────────────────────────
+  async function loadConfig() {
+    const r = await fetch('/api/config').then(r => r.json());
+    document.getElementById('pljecEmail').value       = r.pljec?.email    ?? '';
+    document.getElementById('pljecPassword').value    = r.pljec?.password ?? '';
+    document.getElementById('jiraEmail').value        = r.jira?.email     ?? '';
+    document.getElementById('jiraPassword').value     = r.jira?.password  ?? '';
+    document.getElementById('jiraIssue').value        = r.jiraIssue        ?? 'SLSIXPU-1';
+    document.getElementById('worklogAttribute').value = r.worklogAttribute ?? 'PI';
+    document.getElementById('scheduleHour').value     = r.scheduleHour     ?? 23;
+  }
+
+  // ── 설정 저장 ────────────────────────────────────────────
+  async function saveConfig() {
+    const body = {
+      pljec:            { email: v('pljecEmail'),    password: v('pljecPassword') },
+      jira:             { email: v('jiraEmail'),     password: v('jiraPassword') },
+      jiraIssue:        v('jiraIssue'),
+      worklogAttribute: v('worklogAttribute'),
+      scheduleHour:     parseInt(v('scheduleHour'), 10)
+    };
+    const r = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(r => r.json());
+    showToast(r.success ? '✅ 설정이 저장됐습니다.' : '❌ ' + r.message, r.success);
+  }
+
+  // ── 상태 조회 ────────────────────────────────────────────
+  async function loadStatus() {
+    const s = await fetch('/api/status').then(r => r.json());
+
+    const statusEl = document.getElementById('botStatus');
+    if (s.running) {
+      statusEl.innerHTML = '<span class="dot run"></span>실행 중…';
+    } else if (s.lastRun?.status === 'success') {
+      statusEl.innerHTML = '<span class="dot ok"></span>정상';
+    } else if (s.lastRun?.status === 'error') {
+      statusEl.innerHTML = '<span class="dot err"></span>오류';
+    } else {
+      statusEl.innerHTML = '<span class="dot"></span>대기 중';
+    }
+
+    document.getElementById('lastRunTime').textContent =
+      s.lastRun ? formatTs(s.lastRun.timestamp) : '—';
+    document.getElementById('nextRunTime').textContent =
+      s.nextRun ? formatTs(s.nextRun) : '—';
+
+    const runBtn = document.getElementById('runBtn');
+    runBtn.disabled    = s.running;
+    runBtn.textContent = s.running ? '⏳ 실행 중…' : '▶ 지금 바로 실행';
+  }
+
+  // ── 로그 조회 ────────────────────────────────────────────
+  async function loadLogs() {
+    const logs = await fetch('/api/logs').then(r => r.json());
+    const container = document.getElementById('logContainer');
+    if (!logs.length) {
+      container.innerHTML = '<div class="empty">아직 실행 기록이 없습니다.</div>';
+      return;
+    }
+    container.innerHTML = `
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th>시각</th>
+            <th>결과</th>
+            <th>출근</th>
+            <th>퇴근</th>
+            <th>메시지</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${logs.map(l => `
+            <tr>
+              <td style="white-space:nowrap;color:var(--muted)">${formatTs(l.timestamp)}</td>
+              <td>
+                <span class="badge ${l.status}">
+                  ${l.status === 'success' ? '✅ 성공' : '❌ 오류'}
+                </span>
+              </td>
+              <td>${l.clockIn  ?? '—'}</td>
+              <td>${l.clockOut ?? '—'}</td>
+              <td style="color:var(--muted);font-size:12px;">${l.message ?? ''}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  // ── 수동 실행 ────────────────────────────────────────────
+  async function manualRun() {
+    const r = await fetch('/api/run', { method: 'POST' }).then(r => r.json());
+    showToast(r.message, r.success);
+    setTimeout(loadStatus, 1000);
+  }
+
+  // ── 유틸 ─────────────────────────────────────────────────
+  function v(id) { return document.getElementById(id).value.trim(); }
+
+  function formatTs(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getMonth()+1}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  let toastTimer;
+  function showToast(msg, ok = true) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.borderColor = ok ? 'var(--success)' : 'var(--error)';
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
+  }
+</script>
+</body>
+</html>
