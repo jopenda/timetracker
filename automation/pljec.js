@@ -17,22 +17,16 @@ async function getPljekAttendance({ email, password }) {
 
   try {
     // ── 1. 로그인 페이지 이동 ──────────────────────────────
-    await page.goto('https://hr.pljec.cloud/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+    // ── 로그인 페이지로 직접 이동 ──────────────────────────────
+    await page.goto('https://hr.pljec.cloud/main/login', { waitUntil: 'domcontentloaded', timeout: 60000 });
 
-    // 이미 로그인되어 있는지 확인
-    const isLoggedIn = await page.$('.main-dashboard, [class*="dashboard"], [class*="attendance"]');
-    if (!isLoggedIn) {
-      // 로그인 폼 처리
-      // TODO: 실제 선택자 확인 필요 (아래는 추정값)
-      await page.waitForSelector('input[type="email"], input[name="email"], input[name="userId"], input[name="id"]', { timeout: 10000 });
-
-      const emailInput = page.locator('input[type="email"], input[name="email"], input[name="userId"], input[name="id"]').first();
-      const pwInput    = page.locator('input[type="password"]').first();
-
-      await emailInput.fill(email);
-      await pwInput.fill(password);
-      await page.locator('button[type="submit"], input[type="submit"], button:has-text("로그인"), button:has-text("Login")').first().click();
-      await page.waitForNavigation({ waitUntil: 'networkidle', timeout: 15000 });
+    // 로그인 폼이 있으면 로그인 (선택자 확인 완료)
+    const loginForm = await page.$('#login_id');
+    if (loginForm) {
+      await page.fill('#login_id', email);
+      await page.fill('#login_passwd', password);
+      await page.click('button.login_btn');
+      await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 });
     }
 
     // ── 2. 대시보드에서 출퇴근 시간 읽기 ─────────────────────
