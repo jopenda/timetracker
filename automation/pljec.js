@@ -17,7 +17,7 @@ async function getPljekAttendance({ email, password }) {
 
   try {
     // ── 1. 로그인 페이지 이동 ──────────────────────────────
-    await page.goto('https://hr.pljec.cloud/', { waitUntil: 'networkidle', timeout: 30000 });
+    await page.goto('https://hr.pljec.cloud/', { waitUntil: 'domcontentloaded', timeout: 60000 });
 
     // 이미 로그인되어 있는지 확인
     const isLoggedIn = await page.$('.main-dashboard, [class*="dashboard"], [class*="attendance"]');
